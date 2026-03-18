@@ -35,19 +35,17 @@ export async function collectFromBizinfo(): Promise<NewGovProgram[]> {
   }
 
   try {
-    const params = new URLSearchParams({
-      crtfcKey: apiKey,
-      dataType: "json",
-      pageUnit: "100",
-      pageIndex: "1",
-    });
-
     let response = null;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        response = await axios.post(BIZINFO_API_URL, params.toString(), {
+        response = await axios.get(BIZINFO_API_URL, {
+          params: {
+            crtfcKey: apiKey,
+            dataType: "json",
+            pageUnit: "100",
+            pageIndex: "1",
+          },
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             Accept: "application/json, text/plain, */*",
@@ -95,7 +93,7 @@ export async function collectFromBizinfo(): Promise<NewGovProgram[]> {
       };
     });
   } catch (error) {
-    console.error("[BizInfo] Collection failed:", error);
+    console.error("[BizInfo] Collection failed:", (error as Error).message);
     return [];
   }
 }

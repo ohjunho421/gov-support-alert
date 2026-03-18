@@ -8,71 +8,53 @@ interface CrawlTarget {
   parse: (html: string) => NewGovProgram[];
 }
 
+/**
+ * K-Startup 사이트 파서
+ * 구조: ul > li.notice > div.inner > div.right > div.top/middle/bottom
+ */
 function parseKStartup(html: string): NewGovProgram[] {
   const $ = cheerio.load(html);
   const programs: NewGovProgram[] = [];
 
-  $(".tbl_wrap tbody tr, .board_list tbody tr, .list_wrap li").each(
-    (_, el) => {
-      const $el = $(el);
-      const title =
-        $el.find("td:nth-child(2) a, .tit, .subject a").text().trim();
-      const org = $el.find("td:nth-child(3), .org").text().trim();
-      const deadline = $el.find("td:nth-child(4), .date").text().trim();
-      const link = $el.find("a").attr("href") || "";
-
-      if (title) {
-        programs.push({
-          title,
-          description: null,
-          organization: org || "K-Startup",
-          supportAmount: null,
-          deadline: deadline || null,
-          applyUrl: link.startsWith("http")
-            ? link
-            : `https://www.k-startup.go.kr${link}`,
-          sourceUrl: link.startsWith("http")
-            ? link
-            : `https://www.k-startup.go.kr${link}`,
-          source: "k-startup",
-          category: "창업지원",
-          region: null,
-          rawData: { title, org, deadline, link },
-        });
-      }
-    }
-  );
-
-  return programs;
-}
-
-function parseKised(html: string): NewGovProgram[] {
-  const $ = cheerio.load(html);
-  const programs: NewGovProgram[] = [];
-
-  $(".board_list tbody tr, .bbs_list tbody tr").each((_, el) => {
+  $("li.notice").each((_, el) => {
     const $el = $(el);
-    const title = $el.find("td.subject a, td:nth-child(2) a").text().trim();
-    const date = $el.find("td:nth-child(4), td.date").text().trim();
-    const link = $el.find("a").attr("href") || "";
+    const inner = $el.find(".inner");
+    const right = inner.find(".right");
+
+    const category = right.find(".top .flag.type07, .top .flag:not(.day)").first().text().trim();
+    const dday = right.find(".top .flag.day").text().trim();
+    const title = right.find(".middle a").first().text().replace(/새로운게시글/g, "").trim();
+
+    const bottomSpans = right.find(".bottom span.list");
+    const org = bottomSpans.eq(1).text().trim();
+
+    let deadline: string | null = null;
+    bottomSpans.each((_, span) => {
+      const text = $(span).text().trim();
+      if (text.startsWith("마감일자")) {
+        deadline = text.replace("마감일자", "").trim();
+      }
+    });
+
+    const onclick = inner.find("[onclick*=go_view]").attr("onclick") || "";
+    const pbancSn = onclick.match(/go_view(?:_blank)?\((\d+)\)/);
+    const detailUrl = pbancSn
+      ? `https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do?schM=view&pbancSn=${pbancSn[1]}`
+      : "";
 
     if (title) {
       programs.push({
         title,
-        description: null,
-        organization: "창업진흥원",
+        description: dday ? `[${dday}] ${category || ""}` : null,
+        organization: org || "K-Startup",
         supportAmount: null,
-        deadline: date || null,
-        applyUrl: link.startsWith("http")
-          ? link
-          : `https://www.kised.or.kr${link}`,
-        sourceUrl: link.startsWith("http")
-          ? link
-          : `https://www.kised.or.kr${link}`,
-        source: "kised",
-        category: "창업지원",
+        deadline,
+        applyUrl: detailUrl || null,
+        sourceUrl: detailUrl || null,
+        source: "k-startup",
+        category: category || "창업지원",
         region: null,
-        rawData: { title, date, link },
+        rawData: { title, org, category, deadline, dday, pbancSn: pbancSn?.[1] },
       });
     }
   });
@@ -85,11 +67,6 @@ const CRAWL_TARGETS: CrawlTarget[] = [
     name: "K-Startup",
     url: "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do",
     parse: parseKStartup,
-  },
-  {
-    name: "창업진흥원",
-    url: "https://www.kised.or.kr/menu.es?mid=a10305010000",
-    parse: parseKised,
   },
 ];
 

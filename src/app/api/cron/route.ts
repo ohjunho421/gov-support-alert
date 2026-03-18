@@ -3,8 +3,8 @@ import { collectAll } from "@/lib/collectors";
 import { matchNewPrograms } from "@/lib/matcher";
 import { sendDailyNotification } from "@/lib/telegram";
 
-// This endpoint runs the full pipeline: collect -> match -> notify
-// Called by external cron (Railway cron or cron-job.org)
+// 전체 파이프라인 또는 매칭+알림만 실행
+// ?skip=collect → 수집 건너뜀 (로컬에서 수집한 경우)
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -13,18 +13,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const skipCollect = request.nextUrl.searchParams.get("skip") === "collect";
+
   try {
-    console.log("[Cron] Starting daily pipeline...");
+    console.log("[Cron] Starting pipeline...", skipCollect ? "(skip collect)" : "");
 
-    // Step 1: Collect
-    const collectResult = await collectAll();
-    console.log("[Cron] Collected:", collectResult);
+    let collectResult = null;
+    if (!skipCollect) {
+      collectResult = await collectAll();
+      console.log("[Cron] Collected:", collectResult);
+    }
 
-    // Step 2: Match with AI
     const matchResult = await matchNewPrograms();
     console.log("[Cron] Matched:", matchResult.length);
 
-    // Step 3: Notify via Telegram
     const notifyResult = await sendDailyNotification();
     console.log("[Cron] Notified:", notifyResult);
 
