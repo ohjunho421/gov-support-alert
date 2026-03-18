@@ -3,6 +3,7 @@ import type { NewGovProgram } from "../db/schema";
 
 const BIZINFO_API_URL =
   "https://www.bizinfo.go.kr/uss/rss/bizinfoApi.do";
+const BIZINFO_BASE_URL = "https://www.bizinfo.go.kr";
 
 interface BizInfoItem {
   pblancNm: string;
@@ -13,6 +14,15 @@ interface BizInfoItem {
   sprtCn: string;
   pldirSportRealmLclasCodeNm: string;
   areaNm: string;
+  trgetNm: string;
+  hashTags: string;
+  excInsttNm: string;
+}
+
+function toFullUrl(path: string): string {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  return `${BIZINFO_BASE_URL}${path}`;
 }
 
 export async function collectFromBizinfo(): Promise<NewGovProgram[]> {
@@ -23,30 +33,40 @@ export async function collectFromBizinfo(): Promise<NewGovProgram[]> {
   }
 
   try {
-    const response = await axios.get(BIZINFO_API_URL, {
-      params: {
-        crtfcKey: apiKey,
-        dataType: "json",
-        pageUnit: 50,
-        pageIndex: 1,
-      },
+    const params = new URLSearchParams({
+      crtfcKey: apiKey,
+      dataType: "json",
+      pageUnit: "100",
+      pageIndex: "1",
+    });
+
+    const response = await axios.post(BIZINFO_API_URL, params.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       timeout: 30000,
     });
 
-    const items: BizInfoItem[] =
-      response.data?.jsonArray || response.data?.items || [];
+    const items: BizInfoItem[] = response.data?.jsonArray || [];
+
+    console.log(`[BizInfo] Fetched ${items.length} items`);
 
     return items.map((item) => {
       const deadlineStr = item.reqstBeginEndDe?.split("~")[1]?.trim();
+      const fullUrl = toFullUrl(item.pblancUrl);
 
       return {
         title: item.pblancNm,
-        description: item.bsnsSumryCn || item.sprtCn || "",
-        organization: item.jrsdInsttNm,
+        description: [
+          item.bsnsSumryCn,
+          item.trgetNm ? `[대상] ${item.trgetNm}` : "",
+          item.hashTags ? `[태그] ${item.hashTags}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n"),
+        organization: item.jrsdInsttNm || item.excInsttNm || "",
         supportAmount: item.sprtCn || null,
         deadline: deadlineStr || null,
-        applyUrl: item.pblancUrl || null,
-        sourceUrl: item.pblancUrl || null,
+        applyUrl: fullUrl || null,
+        sourceUrl: fullUrl || null,
         source: "bizinfo",
         category: item.pldirSportRealmLclasCodeNm || null,
         region: item.areaNm || null,
