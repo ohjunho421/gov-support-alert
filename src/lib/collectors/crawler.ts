@@ -97,20 +97,31 @@ export async function collectFromCrawling(): Promise<NewGovProgram[]> {
   const allPrograms: NewGovProgram[] = [];
 
   for (const target of CRAWL_TARGETS) {
-    try {
-      const response = await axios.get(target.url, {
-        timeout: 15000,
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Accept-Language": "ko-KR,ko;q=0.9",
-        },
-      });
-      const programs = target.parse(response.data);
-      allPrograms.push(...programs);
-      console.log(`[Crawler] ${target.name}: ${programs.length} items`);
-    } catch (error) {
-      console.error(`[Crawler] ${target.name} failed:`, error);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const response = await axios.get(target.url, {
+          timeout: 20000,
+          headers: {
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          },
+        });
+        const programs = target.parse(response.data);
+        allPrograms.push(...programs);
+        console.log(`[Crawler] ${target.name}: ${programs.length} items`);
+        break;
+      } catch (error) {
+        console.warn(
+          `[Crawler] ${target.name} attempt ${attempt}/3 failed:`,
+          (error as Error).message
+        );
+        if (attempt < 3) {
+          await new Promise((r) => setTimeout(r, 2000 * attempt));
+        }
+      }
     }
   }
 
