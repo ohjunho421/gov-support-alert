@@ -31,6 +31,8 @@ async function evaluateProgram(program: GovProgram): Promise<MatchResult> {
 - 기술: ${BLOGCHEATKEY_PROFILE.techStack.join(", ")}
 - 수익 모델: ${BLOGCHEATKEY_PROFILE.revenueModel}
 - 사업 단계: ${BLOGCHEATKEY_PROFILE.stage}
+- 소재지: ${BLOGCHEATKEY_PROFILE.location}
+- 신청 가능 지역: ${BLOGCHEATKEY_PROFILE.eligibleRegions.join(", ")}
 
 ## 정부지원사업 정보
 - 사업명: ${program.title}
@@ -39,6 +41,13 @@ async function evaluateProgram(program: GovProgram): Promise<MatchResult> {
 - 지원금액: ${program.supportAmount || "정보 없음"}
 - 마감일: ${program.deadline || "정보 없음"}
 - 카테고리: ${program.category || "정보 없음"}
+- 지역: ${program.region || "정보 없음"}
+
+## 평가 기준 (엄격히 적용)
+1. **지역 제한**: 특정 지역 한정 사업(예: 경상북도, 부산시 등)은 신청 불가 → 점수 1-2점
+2. **사업 무관**: 해외진출, 수출, 글로벌 관련 사업 → 점수 1-2점
+3. **업종 불일치**: AI/IT/SW와 무관한 사업(농업, 제조업 전용 등) → 점수 1-3점
+4. **관련 있음**: AI, SaaS, 콘텐츠, 마케팅, 창업, SW 관련 + 전국/수도권 대상 → 점수 7-10점
 
 ## 응답 형식 (JSON만 출력)
 {
